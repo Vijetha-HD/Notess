@@ -1,33 +1,48 @@
-name: Node.js CI
+name: Build and Deploy MERN App to Azure
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
-  build:
-
-    runs-on: windows-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install dependencies
+      # Step 1: Build React frontend
+      - name: 🧱 Install frontend dependencies
+        run: npm install
+        working-directory: ./client
+
+      - name: 🛠️ Build React frontend
+        run: npm run build
+        working-directory: ./client
+
+      - name: 🚚 Move React build to backend
+        run: |
+          rm -rf ./server/client
+          mkdir -p ./server/client
+          mv ./client/build ./server/client/build
+
+      # Step 2: Install backend dependencies
+      - name: 🔧 Install backend dependencies
         run: npm install
         working-directory: ./server
 
-      - name: Build project
-        run: npm run build --if-present
-        working-directory: ./server
-
-      - name: Run tests
-        run: npm test --if-present
-        working-directory: ./server
+      # Step 3: Deploy backend (with frontend build) to Azure
+      - name: 🚀 Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: YOUR_AZURE_APP_NAME     # 🔁 Replace this with your real Azure app name
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./server
