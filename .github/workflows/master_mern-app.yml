@@ -1,9 +1,9 @@
-name: Deploy Node.js Fullstack App to Azure
+name: Build and Deploy MERN App to Azure
 
 on:
   push:
     branches:
-      - main
+      - main  # or 'master' if your default branch is master
 
 jobs:
   build-and-deploy:
@@ -24,7 +24,7 @@ jobs:
           npm install
           npm run build
 
-      - name: 🧹 Move Frontend Build to Backend (Optional)
+      - name: 🧹 Move Frontend Build to Backend
         run: |
           rm -rf server/client
           mv client/build server/client
@@ -37,7 +37,7 @@ jobs:
       - name: 🚀 Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: Notes-app                  # Your Azure App name
+          app-name: Notes-app                      # <-- Your Azure Web App name
           slot-name: production
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: ./server
