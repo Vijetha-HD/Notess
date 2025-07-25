@@ -1,65 +1,43 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - Mern-app
+name: Deploy Node.js Fullstack App to Azure
 
 on:
   push:
     branches:
-      - master
-  workflow_dispatch:
+      - main
 
 jobs:
-  build:
-    runs-on: windows-latest
-    permissions:
-      contents: read #This is required for actions/checkout
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Node.js version
+      - name: 🟢 Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '20'
 
-      - name: npm install, build, and test
+      - name: 📦 Install and Build Frontend
         run: |
+          cd client
           npm install
-          npm run build --if-present
-          npm run test --if-present
-      
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+          npm run build
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      - name: 🧹 Move Frontend Build to Backend (Optional)
+        run: |
+          rm -rf server/client
+          mv client/build server/client
 
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_20357CAAFA63432EAC092ADFD1D6A90F }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E00EED10B17940919BAF5AD5B08C499D }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_140E0000181C4AD58ED4AB8EB456680D }}
+      - name: 📦 Install Backend Dependencies
+        run: |
+          cd server
+          npm install
 
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
+      - name: 🚀 Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
         with:
-          app-name: 'Mern-app'
-          slot-name: 'Production'
-          package: .
-          
+          app-name: Notes-app                  # Your Azure App name
+          slot-name: production
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          package: ./server
