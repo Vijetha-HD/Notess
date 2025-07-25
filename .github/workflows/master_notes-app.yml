@@ -1,10 +1,14 @@
-name: Build and deploy Node.js app to Azure Web App - Notes-app
+name: Build and Deploy Node.js App to Azure Web App - Notes-app
 
 on:
   push:
     branches:
       - master
   workflow_dispatch:
+
+permissions:
+  id-token: write        # Required for OIDC login
+  contents: read         # Required for actions/checkout
 
 jobs:
   build:
@@ -14,23 +18,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Build frontend (inside client)
       - name: Set up Node.js for frontend
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
 
-      - name: Install frontend dependencies and build
+      - name: Install & build frontend
         working-directory: ./client
         run: |
           npm install
           npm run build
 
-      - name: Upload frontend build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend
-          path: client/build
-
+      # Build backend (inside server)
       - name: Set up Node.js for backend
         uses: actions/setup-node@v3
         with:
@@ -38,13 +38,17 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./server
-        run: |
-          npm install
+        run: npm install
 
-      - name: Upload backend code
+      - name: Copy frontend build to backend public directory
+        run: |
+          mkdir -p server/public
+          cp -r client/build/* server/public/
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend
+          name: app-package
           path: server
 
   deploy:
@@ -52,17 +56,11 @@ jobs:
     needs: build
 
     steps:
-      - name: Download frontend artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: frontend
-          path: client/build
-
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend
-          path: server
+          name: app-package
+          path: .
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -70,10 +68,10 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          auth-type: SERVICE_PRINCIPAL
 
-      - name: Deploy backend to Azure Web App
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'Notes-app'           # Azure App Service name
-          slot-name: 'Production'
-          package: server                 # Path to backend code
+          app-name: 'Notes-app'         # Change to your actual app name
+          package: .
