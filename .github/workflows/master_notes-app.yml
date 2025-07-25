@@ -1,4 +1,4 @@
-name: Build and deploy Node.js backend to Azure Web App - Notes-app
+name: Build and Deploy Node.js App to Azure - Notes-app
 
 on:
   push:
@@ -9,50 +9,61 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install and build frontend (optional)
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      # Install and build frontend
       - name: Install frontend dependencies
         run: npm install
-        working-directory: ./client/src
+        working-directory: client/src
 
       - name: Build frontend
         run: npm run build
-        working-directory: ./client/src
+        working-directory: client/src
 
-      # Install backend
-      - name: Install backend dependencies
-        run: npm install
-        working-directory: ./server
-
-      # Optional: test backend
-      - name: Test backend
-        run: npm run test --if-present
-        working-directory: ./server
-
-      - name: Upload backend artifact
+      - name: Upload frontend build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-app
-          path: ./server
+          name: frontend
+          path: client/src/build
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
-      - name: Download artifact
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-app
+          name: frontend
+          path: client/src/build
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      # Install backend dependencies
+      - name: Install backend dependencies
+        run: npm install
+        working-directory: server
+
+      # Move frontend build into backend (optional: if backend serves frontend)
+      - name: Copy frontend to backend
+        run: |
+          rm -rf server/client
+          mkdir -p server/client
+          cp -r client/src/build/* server/client/
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -66,4 +77,4 @@ jobs:
         with:
           app-name: 'Notes-app'
           slot-name: 'Production'
-          package: .
+          package: server
